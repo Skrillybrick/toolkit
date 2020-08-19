@@ -2,18 +2,22 @@
 # Script for monitoring availability of F5 pools and reporting status in Nagios and Icinga
 #
 # Written by Chase Smith
-import json, os, sys
+#
+import json, os, sys, re
 from optparse import OptionParser,OptionGroup
 
 version='20200818'
-StatusCodes = { 0: "OK" , 1: "WARNING", 2: "CRITICAL", 3: "UNKNOWN"}
+StatusCodes = { 0: "OK" , 
+                1: "WARNING", 
+                2: "CRITICAL", 
+                3: "UNKNOWN"}
+
 
 def getopts():
   global host, env, user, password, pool, warning, critical, verbose
-  usage = "usage: %prog -H host -U user -P password -p pool\n" \
-    "example: %prog -H host -U root -P password\n\n" \
+  usage = "usage: %prog -H host -e env -U user -P password -p pool\n" \
     "or, verbosely:\n\n" \
-    "usage: %prog --host=host --user=user --pass=password [--verbose --stats]\n"
+    "usage: %prog --host=host --user=user --pass=password --pool=pool [ --verbose --members ]\n"
 
   parser = OptionParser(usage=usage, version="%prog "+version)
   group1 = OptionGroup(parser, 'Mandatory parameters')
@@ -29,6 +33,8 @@ def getopts():
 
   group2.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, \
       help="print extended output to stdout")
+  group2.add_option("-m", "--members", action="store_true", dest="members", default=False, \
+      help="show members statistics")
 
   parser.add_option_group(group1)
   parser.add_option_group(group2)
@@ -39,6 +45,8 @@ def getopts():
     sys.exit(-1)
   (options, args) = parser.parse_args()
   return options
+
+
 
 def getExitMessage():
   ExitCode = 0
@@ -56,8 +64,8 @@ def getExitMessage():
   if activeMembers < totalMembers:
     ExitCode = (1, ExitCode)[ExitCode > 1]
     membersMsg += "'{pool}' active members is less than total members.".format(pool=options.pool)
-    if options.verbose:
-      membersMsg += "( active:{active}, total:{total} )".format(active=activeMembers, total=totalMembers)
+  if options.verbose:
+    membersMsg += "( active:{active}, total:{total} )".format(active=activeMembers, total=totalMembers)
 
   #check connections
   if currentConnections >= round(maxConnections / 100 * float(options.ConnectionsCritical)):
@@ -68,6 +76,8 @@ def getExitMessage():
     connectionMsg += "'{pool}' current connections are over {ConnectionsWarning}% of pool maximum".format(pool=options.pool, ConnectionsWarning=options.ConnectionsWarning)
   else:
     ExitCode = (0, ExitCode)[ExitCode > 0]
+  if options.verbose:
+    connectionMsg += " ({connections} / {max})".format(connections=currentConnections, max=maxConnections)
 
   #Set message
   if availabilityMsg:
@@ -79,6 +89,7 @@ def getExitMessage():
   if not ExitMsg:
     ExitMsg += " -- {pool}".format(pool=options.pool)
   return ExitCode, ExitMsg
+
 
 
 options = getopts()
@@ -100,8 +111,15 @@ except:
   print("UNKNOWN -- an error occured")
   sys.exit(3)
 
+
+
 def main():
   ExitCode, ExitMsg = getExitMessage()
+  if options.members:
+    membersCurl = "curl -k -s -u {user}:{password} -X GET https://{host}/mgmt/tm/ltm/pool/~{env}~{pool}/members/stats".format(user=options.user, password=options.password, host=options.host, env=options.env, pool=options.pool)
+    members_json = json.loads(os.popen(membersCurl).read())
+    for k, v in members_json['entries'].items():
+      ExitMsg += "\n\t {} - {} ".format(re.sub('/Prod/', '', v['nestedStats']['entries']['nodeName']['description']), v['nestedStats']['entries']['serverside.curConns']['value'])
   print("{}{}".format(StatusCodes[ExitCode], ExitMsg))
   sys.exit(ExitCode)
 
