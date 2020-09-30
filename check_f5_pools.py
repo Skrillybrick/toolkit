@@ -6,7 +6,7 @@
 import json, os, sys, re
 from optparse import OptionParser,OptionGroup
 
-version='20200818'
+version='1.1-202009'
 StatusCodes = { 0: "OK" , 
                 1: "WARNING", 
                 2: "CRITICAL", 
@@ -120,7 +120,7 @@ def main():
     members_json = json.loads(os.popen(membersCurl).read())
     for k, v in members_json['entries'].items():
       ExitMsg += "\n\t {} - {} ".format(re.sub('/Prod/', '', v['nestedStats']['entries']['nodeName']['description']), v['nestedStats']['entries']['serverside.curConns']['value'])
-  print("{}{}".format(StatusCodes[ExitCode], ExitMsg))
+  print(StatusCodes[ExitCode], ExitMsg)
   sys.exit(ExitCode)
 
 main()
