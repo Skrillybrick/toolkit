@@ -8,11 +8,8 @@
 #   - dbname
 #   - username
 #   - password
-#   - user/pass file
 #   - duration warning
-#
-# Output sample:
-#   QUERY WARNING: 
+#   - critical number of queries
 
 import psycopg2
 import sys
