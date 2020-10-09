@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Custom Nagios check to alert on queries running longer than desired.
 # Written by Chase Smith
@@ -32,7 +32,7 @@ import psycopg2
 import sys
 from optparse import OptionParser,OptionGroup
 
-version='1.0-202009'
+version='1.1-202010'
 StatusCodes = { 0: "OK" ,
                 1: "WARNING",
                 2: "CRITICAL",
