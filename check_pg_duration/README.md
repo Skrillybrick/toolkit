@@ -32,7 +32,7 @@ In the home directory of the nrpe user on your system, create a `.pgpass` file w
 ### Parameters
 `-u, --username` - `username to connect to database`
 
-`-w, --wtime` - `amount of time for warning`
+`-w, --wtime` - `amount of time for warning in seconds`
 
 `-C, --critical` - `number of queries for critical`
 
