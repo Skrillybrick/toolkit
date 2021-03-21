@@ -32,7 +32,7 @@ import psycopg2
 import sys
 from optparse import OptionParser,OptionGroup
 
-version='1.1-202010'
+version='1.1.20'
 StatusCodes = { 0: "OK" ,
                 1: "WARNING",
                 2: "CRITICAL",
@@ -98,9 +98,11 @@ def getExitMessage(results):
       ExitCode = 1
     for result in results:
       if opts.verbose:
-        ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}\n    - query: {query}".format(pid=result['pid'], duration=result['duration'], state=result['state'], query=result['query'])
+        ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}\n    - query: {query}".format(
+          pid=result['pid'], duration=result['duration'], state=result['state'], query=result['query'])
       else:
-        ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}".format(pid=result['pid'], duration=result['duration'], state=result['state'])
+        ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}".format(
+          pid=result['pid'], duration=result['duration'], state=result['state'])
   return ExitCode, len(results), ExitMsg
 
 
