@@ -40,81 +40,83 @@ StatusCodes = { 0: "OK" ,
 
 #Get options from command line flags
 def getopts():
-  global user, password, wtime, critical, verbose#, dbname, host
-  usage = "usage: %prog -u user -w warning -C critical\n" \
-    "or, verbosely:\n\n" \
-    "usage: %prog --host=host user=user --warning=warning --critical=critical [ --verbose ]\n"
+    global user, password, wtime, critical, verbose#, dbname, host
+    usage = "usage: %prog -u user -w warning -C critical\n" \
+            "or, verbosely:\n\n" \
+            "usage: %prog --host=host user=user --warning=warning --critical=critical [ --verbose ]\n"
 
-  parser = OptionParser(usage=usage, version="%prog "+version)
-  group1 = OptionGroup(parser, 'Mandatory parameters')
-  group2 = OptionGroup(parser, 'Optional parameters')
+    parser = OptionParser(usage=usage, version="%prog "+version)
+    group1 = OptionGroup(parser, 'Mandatory parameters')
+    group2 = OptionGroup(parser, 'Optional parameters')
 
-  group1.add_option("-u", "--username", dest="username", help="username to connect to database", metavar="USERNAME")
-  group1.add_option("-w", "--wtime", dest="wtime", help="amount of time for warning", metavar="WTIME")
-  group1.add_option("-C", "--critical", dest="critical", help="number of queries for critical", metavar="CRITICAL")
+    group1.add_option("-u", "--username", dest="username", help="username to connect to database", metavar="USERNAME")
+    group1.add_option("-w", "--wtime", dest="wtime", help="amount of time for warning", metavar="WTIME")
+    group1.add_option("-C", "--critical", dest="critical", help="number of queries for critical", metavar="CRITICAL")
 
-  group2.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, \
-      help="show complete query")
+    group2.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, \
+                      help="show complete query")
 
-  parser.add_option_group(group1)
-  parser.add_option_group(group2)
+    parser.add_option_group(group1)
+    parser.add_option_group(group2)
 
-  if len(sys.argv) < 2:
-    print "no parameters specified\n"
-    parser.print_help()
-    sys.exit(-1)
-  (options, args) = parser.parse_args()
-  return options
+    if len(sys.argv) < 2:
+        print "no parameters specified\n"
+        parser.print_help()
+        sys.exit(-1)
+    (options, args) = parser.parse_args()
+    return options
 
 #Establish connection to host and database, then execute query on pg_stat_activity_unpriv table; return results in dictionary
 def connect(opts=getopts()):
-  conn = psycopg2.connect("host={host} dbname={dbname} user={user} password={password}".format(host=opts.host, dbname=opts.dbname, user=opts.username, password=opts.password))
-  cursor = conn.cursor()
-  cursor.execute("""
-    SELECT pid, now() - pg_stat_activity_unpriv.query_start AS duration, query, state 
-    FROM pg_stat_activity_unpriv
-    WHERE (now() - pg_stat_activity_unpriv.query_start) > interval '{wtime} seconds' AND state != 'idle';
-    """.format(wtime=opts.wtime))
-  columns = ( 'pid', 'duration', 'query', 'state' )
-  results = []
+    conn = psycopg2.connect("host={host} dbname={dbname} user={user} password={password}".format(host=opts.host, dbname=opts.dbname, user=opts.username, password=opts.password))
+    cursor = conn.cursor()
+    cursor.execute("""
+                   SELECT pid, now() - pg_stat_activity_unpriv.query_start AS duration, query, state 
+                   FROM pg_stat_activity_unpriv
+                   WHERE (now() - pg_stat_activity_unpriv.query_start) > interval '{wtime} seconds' AND state != 'idle';
+                   """.format(wtime=opts.wtime))
+    columns = ( 'pid', 'duration', 'query', 'state' )
+    results = []
   
-  for row in cursor.fetchall():
-    results.append(dict(zip(columns, row)))
+    for row in cursor.fetchall():
+        results.append(dict(zip(columns, row)))
 
-  cursor.close()
-  conn.close()
+    cursor.close()
+    conn.close()
 
-  return results
+    return results
 
 #Determine ExitCode, ExitMsg for check; return ExitCode, len(results), ExitMsg to calling function
 def getExitMessage(results):
-  ExitCode = 0
-  ExitMsg = ''
-  opts = getopts()
-  if len(results) > 0:
-    if opts.critical:
-      ExitCode = (1, 2)[len(results) >= int(opts.critical)]
-    else:
-      ExitCode = 1
-    for result in results:
-      if opts.verbose:
-        ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}\n    - query: {query}".format(
-          pid=result['pid'], duration=result['duration'], state=result['state'], query=result['query'])
-      else:
-        ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}".format(
-          pid=result['pid'], duration=result['duration'], state=result['state'])
-  return ExitCode, len(results), ExitMsg
+    ExitCode = 0
+    ExitMsg = ''
+    opts = getopts()
+    if len(results) > 0:
+        if opts.critical:
+            ExitCode = (1, 2)[len(results) >= int(opts.critical)]
+        else:
+            ExitCode = 1
+        for result in results:
+            if opts.verbose:
+                ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}\n    - query: {query}".format(
+                  pid=result['pid'], duration=result['duration'], state=result['state'], query=result['query'])
+            else:
+                ExitMsg += "\n  pid: {pid}, duration: {duration}, state: {state}".format(
+                  pid=result['pid'], duration=result['duration'], state=result['state'])
+    return ExitCode, len(results), ExitMsg
 
 
 def main():
-  #Call getExitMessage with connect() function as parameter
-  ExitCode, Number, ExitMsg = getExitMessage(connect())
-  #Print human readable output of check
-  print("{} - there are {} long-running queries{}".format(StatusCodes[ExitCode], Number, ExitMsg))
-  #Send exit code to system
-  sys.exit(ExitCode)
+    #Call getExitMessage with connect() function as parameter
+    ExitCode, Number, ExitMsg = getExitMessage(connect())
+
+    #Print human readable output of check
+    print("{} - there are {} long-running queries{}".format(StatusCodes[ExitCode], Number, ExitMsg))
+
+    #Send exit code to system
+    sys.exit(ExitCode)
 
 
 if __name__ == "__main__":
-  main()
+    main()
 
